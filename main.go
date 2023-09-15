@@ -104,7 +104,7 @@ var (
 	debug               bool
 	metricsServerAddr   string
 	nodeID              string
-	port                uint
+	addr                string
 	watchedDirs         string
 )
 
@@ -123,7 +123,7 @@ func init() {
 	flag.BoolVar(&ads, "ads", false, "Enable ads mode (default: false, means we are using xds)")
 	flag.BoolVar(&debug, "debug", false, "Use debug logging (default: false)")
 	flag.StringVar(&nodeID, "nodeID", "test-id", "Node ID")
-	flag.UintVar(&port, "port", 18000, "Management server port.")
+	flag.StringVar(&addr, "addr", ":18000", "Address:port for management server")
 	flag.StringVar(&watchedDirs, "watch", "", "Dirs to watch for changes (default: current directory)")
 	flag.StringVar(&metricsServerAddr, "metricsServerAddr", ":2112",
 		"Address:port for prometheus metrics endpoint")
@@ -170,7 +170,7 @@ func registerServer(grpcServer *grpc.Server, server server.Server) {
 }
 
 // runManagementServer starts an xDS server at the given port.
-func runManagementServer(ctx context.Context, srv server.Server, port uint) {
+func runManagementServer(ctx context.Context, srv server.Server, addr string) {
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions,
@@ -187,14 +187,14 @@ func runManagementServer(ctx context.Context, srv server.Server, port uint) {
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(grpcMaxConcurrentStreams))
 	grpcServer := grpc.NewServer(grpcOptions...)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.WithError(err).Fatal("failed to listen")
 	}
 
 	registerServer(grpcServer, srv)
 
-	log.WithFields(log.Fields{"port": port}).Info("Listening at")
+	log.WithFields(log.Fields{"addr": addr}).Info("Listening at")
 
 	go func() {
 		go func() {
@@ -569,7 +569,7 @@ func main() {
 
 	// Create and run our management server
 	srv := server.NewServer(ctx, config, nil)
-	runManagementServer(ctx, srv, port)
+	runManagementServer(ctx, srv, addr)
 	runMetricsServer(ctx, metricsServerAddr)
 
 	pid := os.Getpid()
